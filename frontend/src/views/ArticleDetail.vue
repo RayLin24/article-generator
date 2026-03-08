@@ -105,6 +105,14 @@ import { useRouter, useRoute } from 'vue-router'
 import { HomeFilled, ArrowRight, ArrowLeft, Calendar, View, FolderOpened, Star, Share } from '@element-plus/icons-vue'
 import { getArticleById } from '@/api/article'
 import type { Article } from '@/api/article'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+
+// 配置 marked 选项
+marked.setOptions({
+  breaks: true,
+  gfm: true
+})
 
 const router = useRouter()
 const route = useRoute()
@@ -116,24 +124,10 @@ const articleId = computed(() => Number(route.params.id))
 
 const formattedContent = computed(() => {
   if (!article.value?.content) return ''
-  let content = article.value.content
   
-  content = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
-    return `<div class="content-image"><img src="${url}" alt="${alt}" /></div>`
-  })
-  
-  return content
-    .split('\n')
-    .map(p => {
-      if (p.trim().startsWith('<div class="content-image">')) {
-        return p
-      }
-      if (p.trim() === '') {
-        return ''
-      }
-      return `<p>${p}</p>`
-    })
-    .join('')
+  // 使用 marked 解析 Markdown，然后用 DOMPurify 防止 XSS
+  const rawHtml = marked.parse(article.value.content) as string
+  return DOMPurify.sanitize(rawHtml)
 })
 
 const goBack = () => {
@@ -394,6 +388,103 @@ onMounted(() => {
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
   font-style: italic;
   color: var(--text-secondary);
+}
+
+.article-content :deep(ul),
+.article-content :deep(ol) {
+  margin: 16px 0;
+  padding-left: 2em;
+}
+
+.article-content :deep(li) {
+  margin: 8px 0;
+  line-height: 1.8;
+}
+
+.article-content :deep(ul li) {
+  list-style-type: disc;
+}
+
+.article-content :deep(ol li) {
+  list-style-type: decimal;
+}
+
+.article-content :deep(code) {
+  padding: 2px 8px;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 4px;
+  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+  font-size: 0.9em;
+  color: #667eea;
+}
+
+.article-content :deep(pre) {
+  margin: 24px 0;
+  padding: 20px;
+  background: #1a1a2e;
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.article-content :deep(pre code) {
+  padding: 0;
+  background: transparent;
+  color: #eee;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.article-content :deep(strong) {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.article-content :deep(em) {
+  font-style: italic;
+}
+
+.article-content :deep(a) {
+  color: #667eea;
+  text-decoration: none;
+  border-bottom: 1px dashed #667eea;
+  transition: all var(--transition-fast);
+}
+
+.article-content :deep(a:hover) {
+  color: #764ba2;
+  border-bottom-style: solid;
+}
+
+.article-content :deep(hr) {
+  margin: 32px 0;
+  border: none;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #667eea, transparent);
+}
+
+.article-content :deep(table) {
+  width: 100%;
+  margin: 24px 0;
+  border-collapse: collapse;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.article-content :deep(th),
+.article-content :deep(td) {
+  padding: 12px 16px;
+  text-align: left;
+  border: 1px solid var(--bg-secondary);
+}
+
+.article-content :deep(th) {
+  background: rgba(102, 126, 234, 0.1);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.article-content :deep(tr:nth-child(even)) {
+  background: rgba(0, 0, 0, 0.02);
 }
 
 /* Article Footer */
