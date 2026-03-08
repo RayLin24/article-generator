@@ -10,9 +10,59 @@
 - 定时任务自动执行
 - **用户认证系统**：登录/注册功能
 - **角色权限管理**：管理员和普通用户
-- **后台管理系统**：文章增删改查
+- **后台管理系统**：文章管理、栏目管理、用户管理、数据统计
 - 提供REST API接口
 - Vue3前端展示页面
+
+## 功能展示
+
+### 前台展示
+
+#### 首页
+
+首页展示所有启用的栏目导航和最新文章列表，用户可以快速浏览各栏目的文章。
+
+![首页](docs/images/home.png)
+
+#### 文章详情
+
+文章详情页展示完整的文章内容，支持Markdown/富文本渲染，左侧显示目录导航，底部有文章元信息（作者、发布时间、浏览量等）。
+
+![文章详情](docs/images/article-detail.png)
+
+### 后台管理
+
+#### 管理仪表盘
+
+仪表盘展示系统核心数据统计：文章总数、栏目总数、用户总数、总浏览量，以及最近文章列表，让管理员快速了解系统运营状况。
+
+![管理仪表盘](docs/images/admin-dashboard.png)
+
+#### 栏目管理
+
+栏目管理页面支持：
+- 查看所有栏目列表
+- 新增/编辑/删除栏目
+- 启用/禁用栏目状态
+- 栏目排序（上移/下移）
+
+![栏目管理](docs/images/admin-categories.png)
+
+#### 文章管理
+
+文章管理页面支持：
+- 分页查看所有文章（含草稿）
+- 新增/编辑/删除文章
+- 手动触发AI生成文章（全部栏目或指定栏目）
+- 支持Markdown和富文本编辑器
+
+#### 用户管理
+
+用户管理页面支持：
+- 分页查看用户列表
+- 新增/编辑/删除用户
+- 分配用户角色（管理员/普通用户）
+- 设置用户状态（启用/禁用）
 
 ## 技术栈
 
@@ -141,12 +191,16 @@ npm run dev
 |-----|------|-----|
 | `/api/auth/login` | POST | 用户登录 |
 | `/api/auth/register` | POST | 用户注册 |
-| `/api/categories` | GET | 获取所有栏目 |
+| `/api/categories` | GET | 获取所有启用的栏目 |
+| `/api/categories/page` | GET | 分页获取栏目列表 |
+| `/api/categories/{code}` | GET | 根据code获取栏目 |
 | `/api/articles` | GET | 分页获取文章列表 |
 | `/api/articles/{id}` | GET | 获取文章详情 |
 | `/api/articles/category/{code}` | GET | 按栏目获取文章列表 |
 
 ### 管理员接口 (需要登录 + ADMIN角色)
+
+#### 文章管理
 
 | 接口 | 方法 | 说明 |
 |-----|------|-----|
@@ -156,6 +210,33 @@ npm run dev
 | `/api/admin/articles/{id}` | DELETE | 删除文章 |
 | `/api/admin/articles/generate` | POST | 手动触发所有栏目生成文章 |
 | `/api/admin/articles/generate/{categoryId}` | POST | 手动触发指定栏目生成文章 |
+
+#### 栏目管理
+
+| 接口 | 方法 | 说明 |
+|-----|------|-----|
+| `/api/admin/categories` | GET | 获取所有栏目 |
+| `/api/admin/categories` | POST | 新增栏目 |
+| `/api/admin/categories/{id}` | PUT | 更新栏目 |
+| `/api/admin/categories/{id}` | DELETE | 删除栏目 |
+| `/api/admin/categories/{id}/status` | PUT | 更新栏目状态（启用/禁用） |
+| `/api/admin/categories/{id}/move-up` | POST | 栏目上移 |
+| `/api/admin/categories/{id}/move-down` | POST | 栏目下移 |
+
+#### 用户管理
+
+| 接口 | 方法 | 说明 |
+|-----|------|-----|
+| `/api/admin/users` | GET | 分页获取用户列表 |
+| `/api/admin/users` | POST | 新增用户 |
+| `/api/admin/users/{id}` | PUT | 更新用户 |
+| `/api/admin/users/{id}` | DELETE | 删除用户 |
+
+#### 统计数据
+
+| 接口 | 方法 | 说明 |
+|-----|------|-----|
+| `/api/admin/stats` | GET | 获取统计数据（文章数、栏目数、用户数、总浏览量） |
 
 ## 定时任务
 
@@ -171,6 +252,8 @@ schedule:
 
 ```
 article-generator/
+├── docs/                         # 文档
+│   └── images/                   # 图片资源
 ├── sql/                          # 数据库脚本
 │   ├── init.sql                  # 基础表结构
 │   └── user_module.sql           # 用户模块表
@@ -179,38 +262,75 @@ article-generator/
 │   ├── config/                   # 配置类
 │   │   ├── SecurityConfig.java   # Security配置
 │   │   ├── JwtProperties.java    # JWT配置
-│   │   └── JwtAuthenticationFilter.java
+│   │   ├── JwtAuthenticationFilter.java
+│   │   ├── MybatisPlusConfig.java
+│   │   └── AdminInitializer.java # 管理员初始化
 │   ├── controller/               # 控制器
 │   │   ├── AuthController.java   # 认证接口
 │   │   ├── ArticleController.java
 │   │   ├── CategoryController.java
+│   │   ├── ImageController.java  # 图片上传
 │   │   └── AdminController.java  # 管理接口
 │   ├── service/                  # 服务层
+│   │   ├── ArticleService.java
+│   │   ├── CategoryService.java
+│   │   ├── UserService.java
+│   │   ├── ZhipuAiService.java   # 智谱AI服务
+│   │   └── ImageService.java
 │   ├── mapper/                   # MyBatis Mapper
+│   │   ├── ArticleMapper.java
+│   │   ├── CategoryMapper.java
+│   │   └── UserMapper.java
 │   ├── entity/                   # 实体类
+│   │   ├── Article.java
+│   │   ├── Category.java
+│   │   └── User.java
 │   ├── dto/                      # DTO对象
+│   │   ├── ApiResponse.java
+│   │   ├── PageResult.java
+│   │   ├── LoginRequest.java
+│   │   ├── LoginResponse.java
+│   │   ├── RegisterRequest.java
+│   │   ├── UserInfoResponse.java
+│   │   ├── ArticleCreateRequest.java
+│   │   ├── ArticleUpdateRequest.java
+│   │   ├── ArticleQueryRequest.java
+│   │   ├── CategoryCreateRequest.java
+│   │   ├── CategoryUpdateRequest.java
+│   │   ├── CategoryStatusUpdateRequest.java
+│   │   └── StatsResponse.java
 │   ├── util/                     # 工具类
 │   │   ├── JwtUtil.java
 │   │   └── PasswordUtil.java
 │   └── task/                     # 定时任务
+│       └── DailyArticleTask.java
 ├── src/main/resources/
-│   └── application.yml           # 配置文件
+│   ├── application.yml           # 主配置文件
+│   ├── application-local.yml     # 本地配置
+│   └── application-dev.yml       # 开发环境配置
 ├── frontend/                     # Vue3前端
 │   ├── src/
 │   │   ├── views/               # 页面组件
-│   │   │   ├── Home.vue
-│   │   │   ├── Login.vue
-│   │   │   ├── ArticleList.vue
-│   │   │   ├── ArticleDetail.vue
+│   │   │   ├── Home.vue         # 首页
+│   │   │   ├── Login.vue        # 登录页
+│   │   │   ├── ArticleList.vue  # 文章列表
+│   │   │   ├── ArticleDetail.vue # 文章详情
 │   │   │   └── admin/           # 管理后台
-│   │   │       ├── Index.vue
-│   │   │       ├── Dashboard.vue
-│   │   │       └── Articles.vue
+│   │   │       ├── Index.vue    # 后台布局
+│   │   │       ├── Dashboard.vue # 仪表盘
+│   │   │       ├── Articles.vue # 文章管理
+│   │   │       ├── Categories.vue # 栏目管理
+│   │   │       └── Users.vue    # 用户管理
+│   │   ├── components/          # 组件
+│   │   │   ├── MarkdownEditor.vue # Markdown编辑器
+│   │   │   └── RichTextEditor.vue  # 富文本编辑器
 │   │   ├── api/                 # API请求
+│   │   │   └── article.ts
 │   │   ├── stores/              # Pinia状态管理
 │   │   │   ├── category.ts
 │   │   │   └── user.ts
 │   │   └── router/              # 路由配置
+│   │       └── index.ts
 │   └── package.json
 └── pom.xml
 ```

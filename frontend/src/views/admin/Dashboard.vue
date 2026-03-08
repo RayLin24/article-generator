@@ -4,7 +4,7 @@
 
     <el-row :gutter="20" class="stats-row">
       <el-col :span="6">
-        <el-card shadow="hover">
+        <el-card shadow="hover" class="clickable-card" @click="goToArticles">
           <div class="stat-item">
             <div class="stat-icon" style="background: #409eff;">
               <el-icon size="24"><Document /></el-icon>
@@ -17,7 +17,7 @@
         </el-card>
       </el-col>
       <el-col :span="6">
-        <el-card shadow="hover">
+        <el-card shadow="hover" class="clickable-card" @click="goToCategories">
           <div class="stat-item">
             <div class="stat-icon" style="background: #67c23a;">
               <el-icon size="24"><Menu /></el-icon>
@@ -132,6 +132,14 @@ const loadStats = async () => {
   } catch (error) {
     console.error('Failed to load stats:', error)
   }
+}
+
+const goToArticles = () => {
+  router.push('/admin/articles')
+}
+
+const goToCategories = () => {
+  router.push('/admin/categories')
 }
 
 const goToUsers = () => {
