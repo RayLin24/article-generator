@@ -57,6 +57,8 @@
             <el-image 
               :src="article.coverImage"
               :preview-src-list="[article.coverImage]"
+              :z-index="9999"
+              preview-teleported
               fit="cover"
               class="cover-image"
             />

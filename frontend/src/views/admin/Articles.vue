@@ -17,8 +17,10 @@
               v-if="row.coverImage"
               :src="row.coverImage"
               :preview-src-list="[row.coverImage]"
+              :z-index="9999"
+              preview-teleported
               fit="cover"
-              style="width: 80px; height: 50px; border-radius: 4px;"
+              style="width: 80px; height: 50px; border-radius: 4px; cursor: pointer;"
             />
             <span v-else style="color: #999;">无封面</span>
           </template>
@@ -94,6 +96,8 @@
               v-if="form.coverImage"
               :src="form.coverImage"
               :preview-src-list="[form.coverImage]"
+              :z-index="9999"
+              preview-teleported
               fit="cover"
               class="cover-preview"
             />
