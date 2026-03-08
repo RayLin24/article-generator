@@ -1,0 +1,35 @@
+# 主配置文件 - 通用配置
+# 激活 profile: local 或 dev
+
+server:
+  port: 8080
+
+spring:
+  application:
+    name: article-generator
+  
+  profiles:
+    active: local
+
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    serialization:
+      write-dates-as-timestamps: false
+
+# 定时任务通用配置
+schedule:
+  cron: "0 0 6 * * ?"
+  enabled: true
+
+# Picsum图片服务配置
+picsum:
+  base-url: https://picsum.photos
+  default-width: 800
+  default-height: 400
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.example.article: DEBUG

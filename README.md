@@ -44,22 +44,68 @@ mysql -u root -p123456 < sql/user_module.sql
 
 或者手动执行 `sql/init.sql` 和 `sql/user_module.sql` 中的SQL语句。
 
-### 2. 配置智谱AI API Key
+### 2. 配置文件设置
 
-编辑 `src/main/resources/application.yml`：
+项目使用多环境配置，配置文件位于 `src/main/resources/` 目录：
 
-```yaml
-zhipu:
-  api-key: your-api-key-here  # 替换为你的智谱AI API Key
-```
+#### 配置文件说明
 
-或者在启动时设置环境变量：
+| 文件 | 说明 | 是否提交到Git |
+|-----|------|--------------|
+| `application.yml` | 主配置文件，通用配置 | 是 |
+| `application-local.yml` | 本地开发环境配置 | 否（敏感信息） |
+| `application-dev.yml` | 开发/测试环境配置 | 否（敏感信息） |
+| `application-local.yml.template` | 本地配置模板 | 是 |
+| `application-dev.yml.template` | 开发环境配置模板 | 是 |
 
-```bash
-export ZHIPU_API_KEY=your-api-key-here
-```
+#### 快速配置步骤
 
-获取API Key: [智谱AI开放平台](https://open.bigmodel.cn/)
+1. **复制配置模板**
+   ```bash
+   # 进入配置目录
+   cd src/main/resources
+   
+   # 本地开发环境
+   cp application-local.yml.template application-local.yml
+   
+   # 或开发/测试环境
+   cp application-dev.yml.template application-dev.yml
+   ```
+
+2. **修改配置文件中的敏感信息**
+   
+   打开 `application-local.yml` 或 `application-dev.yml`，修改以下配置项：
+   
+   ```yaml
+   spring:
+     datasource:
+       url: jdbc:mysql://YOUR_HOST:3306/YOUR_DATABASE  # 数据库地址
+       username: YOUR_USERNAME                           # 数据库用户名
+       password: YOUR_PASSWORD                           # 数据库密码
+     ai:
+       zhipu:
+         api-key: YOUR_ZHIPU_API_KEY                     # 智谱AI API Key
+   
+   jwt:
+     secret: YOUR_JWT_SECRET_KEY                         # JWT密钥（至少256位）
+   
+   file:
+     upload:
+       path: /your/upload/path/                          # 文件上传路径
+   ```
+
+3. **选择激活的配置文件**
+   
+   在 `application.yml` 中设置：
+   ```yaml
+   spring:
+     profiles:
+       active: local  # 或 dev
+   ```
+
+#### 获取智谱AI API Key
+
+访问 [智谱AI开放平台](https://open.bigmodel.cn/) 注册并获取API Key
 
 ### 3. 启动后端
 
