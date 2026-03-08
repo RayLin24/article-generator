@@ -30,7 +30,7 @@
         </el-card>
       </el-col>
       <el-col :span="6">
-        <el-card shadow="hover">
+        <el-card shadow="hover" class="clickable-card" @click="goToUsers">
           <div class="stat-item">
             <div class="stat-icon" style="background: #e6a23c;">
               <el-icon size="24"><User /></el-icon>
@@ -62,16 +62,22 @@
         <span>快捷操作</span>
       </template>
       <el-row :gutter="20">
-        <el-col :span="12">
+        <el-col :span="8">
           <el-button type="primary" :loading="generating" @click="generateAll">
             <el-icon><MagicStick /></el-icon>
             一键生成所有栏目文章
           </el-button>
         </el-col>
-        <el-col :span="12">
+        <el-col :span="8">
           <el-button @click="$router.push('/admin/articles')">
             <el-icon><Document /></el-icon>
             文章管理
+          </el-button>
+        </el-col>
+        <el-col :span="8">
+          <el-button @click="$router.push('/admin/categories')">
+            <el-icon><Menu /></el-icon>
+            栏目管理
           </el-button>
         </el-col>
       </el-row>
@@ -95,10 +101,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useCategoryStore } from '@/stores/category'
-import { generateAllArticles, generateArticleForCategory, getArticles } from '@/api/article'
+import { generateAllArticles, generateArticleForCategory, getStats } from '@/api/article'
 
+const router = useRouter()
 const categoryStore = useCategoryStore()
 const categories = computed(() => categoryStore.categories)
 
@@ -114,12 +122,20 @@ const generatingCategory = ref<number | null>(null)
 
 const loadStats = async () => {
   try {
-    const res = await getArticles({ page: 1, size: 1 })
-    stats.value.articleCount = res.data?.total || 0
-    stats.value.categoryCount = categories.value.length
+    const res = await getStats()
+    if (res.code === 200 && res.data) {
+      stats.value.articleCount = res.data.articleCount
+      stats.value.categoryCount = res.data.categoryCount
+      stats.value.userCount = res.data.userCount
+      stats.value.viewCount = res.data.totalViewCount
+    }
   } catch (error) {
     console.error('Failed to load stats:', error)
   }
+}
+
+const goToUsers = () => {
+  router.push('/admin/users')
 }
 
 const generateAll = async () => {
@@ -156,7 +172,8 @@ const generateCategory = async (categoryId: number) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await categoryStore.fetchCategories()
   loadStats()
 })
 </script>
@@ -209,5 +226,14 @@ onMounted(() => {
 .action-card h4 {
   margin: 0;
   color: #606266;
+}
+
+.clickable-card {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.clickable-card:hover {
+  transform: translateY(-2px);
 }
 </style>

@@ -11,6 +11,9 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface ArticleMapper extends BaseMapper<Article> {
 
+    @Select("SELECT COALESCE(SUM(view_count), 0) FROM article WHERE status = 1")
+    Long selectTotalViewCount();
+
     @Select("SELECT a.*, c.name as category_name, c.code as category_code " +
             "FROM article a " +
             "LEFT JOIN category c ON a.category_id = c.id " +

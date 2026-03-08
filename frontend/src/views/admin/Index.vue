@@ -21,6 +21,14 @@
             <el-icon><Document /></el-icon>
             <span>文章管理</span>
           </el-menu-item>
+          <el-menu-item index="/admin/categories">
+            <el-icon><Menu /></el-icon>
+            <span>栏目管理</span>
+          </el-menu-item>
+          <el-menu-item index="/admin/users">
+            <el-icon><User /></el-icon>
+            <span>用户管理</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
       <el-main class="admin-main">

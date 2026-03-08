@@ -121,6 +121,34 @@ export const generateArticleForCategory = (categoryId: number) => {
   return api.post<ApiResponse<string>>(`/admin/articles/generate/${categoryId}`).then(res => res.data)
 }
 
+export const getAdminCategories = () => {
+  return api.get<ApiResponse<Category[]>>('/admin/categories').then(res => res.data)
+}
+
+export const createCategory = (data: Partial<Category>) => {
+  return api.post<ApiResponse<Category>>('/admin/categories', data).then(res => res.data)
+}
+
+export const updateCategory = (id: number, data: Partial<Category>) => {
+  return api.put<ApiResponse<Category>>(`/admin/categories/${id}`, data).then(res => res.data)
+}
+
+export const deleteCategory = (id: number) => {
+  return api.delete<ApiResponse<string>>(`/admin/categories/${id}`).then(res => res.data)
+}
+
+export const updateCategoryStatus = (id: number, status: number) => {
+  return api.put<ApiResponse<Category>>(`/admin/categories/${id}/status`, { status }).then(res => res.data)
+}
+
+export const moveCategoryUp = (id: number) => {
+  return api.post<ApiResponse<Category>>(`/admin/categories/${id}/move-up`).then(res => res.data)
+}
+
+export const moveCategoryDown = (id: number) => {
+  return api.post<ApiResponse<Category>>(`/admin/categories/${id}/move-down`).then(res => res.data)
+}
+
 export const getAdminArticles = (page = 1, size = 10) => {
   return api.get<ApiResponse<PageResult<Article>>>('/admin/articles', { params: { page, size } }).then(res => res.data)
 }
@@ -153,4 +181,46 @@ export const getRandomImages = (count = 5, width = 800, height = 400) => {
 
 export const getCoverImage = (articleId: number) => {
   return api.get<ApiResponse<ImageResponse>>(`/images/cover/${articleId}`).then(res => res.data)
+}
+
+export interface StatsResponse {
+  articleCount: number
+  categoryCount: number
+  userCount: number
+  totalViewCount: number
+}
+
+export const getStats = () => {
+  return api.get<ApiResponse<StatsResponse>>('/admin/stats').then(res => res.data)
+}
+
+export interface AdminUser {
+  id: number
+  username: string
+  password?: string
+  nickname: string
+  email: string
+  avatar: string
+  role: string
+  status: number
+  createTime: string
+  updateTime: string
+}
+
+export const getUsers = (page = 1, size = 10, username?: string) => {
+  return api.get<ApiResponse<PageResult<AdminUser>>>('/admin/users', {
+    params: { page, size, username }
+  }).then(res => res.data)
+}
+
+export const createUser = (data: Partial<AdminUser>) => {
+  return api.post<ApiResponse<AdminUser>>('/admin/users', data).then(res => res.data)
+}
+
+export const updateUser = (id: number, data: Partial<AdminUser>) => {
+  return api.put<ApiResponse<AdminUser>>(`/admin/users/${id}`, data).then(res => res.data)
+}
+
+export const deleteUser = (id: number) => {
+  return api.delete<ApiResponse<string>>(`/admin/users/${id}`).then(res => res.data)
 }

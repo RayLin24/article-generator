@@ -7,8 +7,8 @@ export const useCategoryStore = defineStore('category', () => {
   const categories = ref<Category[]>([])
   const loading = ref(false)
 
-  const fetchCategories = async () => {
-    if (categories.value.length > 0) return
+  const fetchCategories = async (force = false) => {
+    if (!force && categories.value.length > 0) return
 
     loading.value = true
     try {

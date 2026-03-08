@@ -18,7 +18,7 @@
           <span class="title-highlight">生成系统</span>
         </h1>
         <p class="hero-description">
-          基于智谱AI GLM，每日自动生成历史故事、爱情故事、经典寓言、热点新闻、科技热点等精彩内容
+          基于智谱AI GLM，每日自动生成多栏目精彩内容，栏目支持后台动态扩展
         </p>
         <div class="hero-actions">
           <el-button type="primary" class="hero-btn primary" @click="scrollToCategories">

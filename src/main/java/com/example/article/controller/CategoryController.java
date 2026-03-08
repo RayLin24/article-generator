@@ -25,7 +25,7 @@ public class CategoryController {
     public ApiResponse<PageResult<Category>> page(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ApiResponse.success(categoryService.getEnabledPage(page, size));
+        return ApiResponse.success(categoryService.getPage(page, size));
     }
 
     @GetMapping("/{code}")

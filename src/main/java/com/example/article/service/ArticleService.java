@@ -65,7 +65,7 @@ public class ArticleService {
         try {
             log.info("开始为栏目 [{}] 生成文章", category.getName());
 
-            String[] topics = getTopicsForCategory(category.getCode());
+            String[] topics = getTopicsForCategory(category);
             String topic = topics[(int) (Math.random() * topics.length)];
             String prompt = category.getPromptTemplate().replace("{topic}", topic);
 
@@ -125,14 +125,25 @@ public class ArticleService {
         return cleaned.length() > 150 ? cleaned.substring(0, 150) + "..." : cleaned;
     }
 
-    private String[] getTopicsForCategory(String code) {
-        return switch (code) {
+    private String[] getTopicsForCategory(Category category) {
+        return switch (category.getCode()) {
             case "history" -> new String[]{"三国演义", "唐朝盛世", "丝绸之路", "秦始皇统一六国", "明朝航海", "清朝康熙", "战国七雄", "汉武帝", "宋朝文化", "元朝疆域"};
             case "love" -> new String[]{"校园初恋", "异地恋", "青梅竹马", "一见钟情", "相伴一生", "跨越时空", "战地爱情", "都市情缘", "书香门第", "江湖侠侣"};
             case "fable" -> new String[]{"勤奋与懒惰", "诚实与欺骗", "知足常乐", "团结力量", "谦虚与骄傲", "智慧与力量", "耐心与急躁", "友谊", "勇气", "感恩"};
             case "news" -> new String[]{"社会热点", "国际局势", "经济动态", "民生关注", "教育改革", "环境保护", "文化传承", "体育赛事", "医疗健康", "科技创新"};
             case "tech" -> new String[]{"人工智能", "量子计算", "元宇宙", "新能源", "生物科技", "太空探索", "自动驾驶", "区块链", "5G通信", "芯片技术"};
-            default -> new String[]{"综合话题"};
+            default -> buildCustomTopics(category.getName());
+        };
+    }
+
+    private String[] buildCustomTopics(String categoryName) {
+        String name = (categoryName == null || categoryName.isBlank()) ? "当前栏目" : categoryName.trim();
+        return new String[]{
+                name + "入门指南",
+                name + "热门趋势",
+                name + "代表案例",
+                name + "实用技巧",
+                name + "发展观察"
         };
     }
 
@@ -194,5 +205,9 @@ public class ArticleService {
         Page<Article> pageParam = new Page<>(page, size);
         IPage<Article> result = articleMapper.selectPageWithCategory(pageParam);
         return PageResult.of(result.getRecords(), result.getTotal(), result.getSize(), result.getCurrent());
+    }
+
+    public Long getTotalViewCount() {
+        return articleMapper.selectTotalViewCount();
     }
 }
