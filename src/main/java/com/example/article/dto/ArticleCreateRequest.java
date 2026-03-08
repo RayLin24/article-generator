@@ -21,4 +21,6 @@ public class ArticleCreateRequest {
     private String coverImage;
 
     private Integer status = 1;
+
+    private String contentType = "markdown";
 }

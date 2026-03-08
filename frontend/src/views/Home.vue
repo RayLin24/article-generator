@@ -31,8 +31,8 @@
           </el-button>
         </div>
         <div class="hero-stats">
-          <div class="stat-item">
-            <span class="stat-number">5+</span>
+        <div class="stat-item">
+          <span class="stat-number">{{ categoryTotal > 0 ? `${categoryTotal}+` : '5+' }}</span>
             <span class="stat-label">内容栏目</span>
           </div>
           <div class="stat-divider"></div>
@@ -60,34 +60,46 @@
         </h2>
         <p class="section-subtitle">探索多元化的AI生成内容</p>
       </div>
-      <div class="categories-grid">
-        <div 
-          v-for="(category, index) in categories" 
-          :key="category.id"
-          class="category-card"
-          :style="{ '--delay': `${index * 0.1}s` }"
-          @click="goToCategory(category.code)"
-        >
-          <div class="card-glow"></div>
-          <div class="card-content">
-            <div class="category-icon-wrapper">
-              <div class="icon-bg"></div>
-              <el-icon class="category-icon" :size="32">
-                <component :is="getCategoryIcon(category.code)" />
-              </el-icon>
-            </div>
-            <h3 class="category-name">{{ category.name }}</h3>
-            <p class="category-desc">每日更新精彩内容</p>
-            <div class="card-arrow">
-              <el-icon><ArrowRight /></el-icon>
+      <div class="section-content" v-loading="categoriesLoading">
+        <div class="categories-grid" v-if="categories.length > 0">
+          <div
+            v-for="(category, index) in categories"
+            :key="category.id"
+            class="category-card"
+            :style="{ '--delay': `${index * 0.1}s` }"
+            @click="goToCategory(category.code)"
+          >
+            <div class="card-glow"></div>
+            <div class="card-content">
+              <div class="category-icon-wrapper">
+                <div class="icon-bg"></div>
+                <el-icon class="category-icon" :size="32">
+                  <component :is="getCategoryIcon(category.code)" />
+                </el-icon>
+              </div>
+              <h3 class="category-name">{{ category.name }}</h3>
+              <p class="category-desc">每日更新精彩内容</p>
+              <div class="card-arrow">
+                <el-icon><ArrowRight /></el-icon>
+              </div>
             </div>
           </div>
         </div>
+        <el-empty v-else-if="!categoriesLoading" description="暂无栏目" />
+      </div>
+      <div class="section-pagination" v-if="categoryTotal > categoryPageSize">
+        <el-pagination
+          v-model:current-page="categoryCurrentPage"
+          :page-size="categoryPageSize"
+          :total="categoryTotal"
+          layout="prev, pager, next"
+          @current-change="handleCategoryPageChange"
+        />
       </div>
     </section>
 
     <!-- Latest Articles Section -->
-    <section class="latest-section">
+    <section class="latest-section" ref="latestSectionRef">
       <div class="section-header">
         <h2 class="section-title">
           <span class="title-icon">
@@ -98,7 +110,7 @@
         <p class="section-subtitle">发现最新的AI创作内容</p>
       </div>
       
-      <el-skeleton :loading="loading" animated :rows="5">
+      <el-skeleton :loading="articlesLoading" animated :rows="5">
         <div class="articles-grid">
           <article 
             v-for="(article, index) in articles" 
@@ -146,26 +158,42 @@
         </div>
       </el-skeleton>
       
-      <el-empty v-if="!loading && articles.length === 0" description="暂无文章" />
+      <el-empty v-if="!articlesLoading && articles.length === 0" description="暂无文章" />
+      <div class="section-pagination" v-if="articleTotal > articlePageSize">
+        <el-pagination
+          v-model:current-page="articleCurrentPage"
+          :page-size="articlePageSize"
+          :total="articleTotal"
+          layout="prev, pager, next"
+          @current-change="handleArticlePageChange"
+        />
+      </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Picture, MagicStick, Compass, InfoFilled, Grid, ArrowRight, Calendar, View, Document } from '@element-plus/icons-vue'
-import { useCategoryStore } from '@/stores/category'
-import { getArticles } from '@/api/article'
-import type { Article } from '@/api/article'
+import { getArticles, getCategoriesPage } from '@/api/article'
+import type { Article, Category } from '@/api/article'
 
 const router = useRouter()
-const categoryStore = useCategoryStore()
 const categoriesRef = ref<HTMLElement | null>(null)
+const latestSectionRef = ref<HTMLElement | null>(null)
 
-const categories = computed(() => categoryStore.categories)
+const categories = ref<Category[]>([])
+const categoriesLoading = ref(false)
+const categoryCurrentPage = ref(1)
+const categoryPageSize = 10
+const categoryTotal = ref(0)
+
 const articles = ref<Article[]>([])
-const loading = ref(false)
+const articlesLoading = ref(false)
+const articleCurrentPage = ref(1)
+const articlePageSize = 6
+const articleTotal = ref(0)
 
 const getCategoryIcon = (code: string) => {
   const icons: Record<string, string> = {
@@ -190,19 +218,46 @@ const goToArticle = (id: number) => {
   router.push(`/article/${id}`)
 }
 
-const fetchLatestArticles = async () => {
-  loading.value = true
+const fetchCategories = async () => {
+  categoriesLoading.value = true
   try {
-    const res = await getArticles({ page: 1, size: 6 })
-    articles.value = res.data?.records || []
+    const res = await getCategoriesPage(categoryCurrentPage.value, categoryPageSize)
+    categories.value = res.data?.records || []
+    categoryTotal.value = res.data?.total || 0
   } catch (error) {
-    console.error('Failed to fetch articles:', error)
+    console.error('Failed to fetch categories:', error)
   } finally {
-    loading.value = false
+    categoriesLoading.value = false
   }
 }
 
+const fetchLatestArticles = async () => {
+  articlesLoading.value = true
+  try {
+    const res = await getArticles({ page: articleCurrentPage.value, size: articlePageSize })
+    articles.value = res.data?.records || []
+    articleTotal.value = res.data?.total || 0
+  } catch (error) {
+    console.error('Failed to fetch articles:', error)
+  } finally {
+    articlesLoading.value = false
+  }
+}
+
+const handleCategoryPageChange = (page: number) => {
+  categoryCurrentPage.value = page
+  fetchCategories()
+  categoriesRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+const handleArticlePageChange = (page: number) => {
+  articleCurrentPage.value = page
+  fetchLatestArticles()
+  latestSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 onMounted(() => {
+  fetchCategories()
   fetchLatestArticles()
 })
 </script>
@@ -416,6 +471,19 @@ onMounted(() => {
 .section-subtitle {
   font-size: 16px;
   color: var(--text-secondary);
+}
+
+.section-content {
+  min-height: 120px;
+}
+
+.section-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
+  padding: 20px 24px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
 }
 
 /* Categories Grid */
@@ -700,6 +768,16 @@ onMounted(() => {
 .article-card:hover .read-more {
   opacity: 1;
   transform: translateX(0);
+}
+
+:deep(.el-pagination) {
+  --el-pagination-button-bg-color: var(--bg-secondary);
+  --el-pagination-hover-color: #667eea;
+}
+
+:deep(.el-pagination .is-active) {
+  background: var(--primary-gradient) !important;
+  color: white !important;
 }
 
 /* Responsive */

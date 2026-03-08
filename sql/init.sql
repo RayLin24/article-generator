@@ -45,3 +45,6 @@ INSERT INTO `category` (`name`, `code`, `prompt_template`, `sort_order`, `status
 ('经典寓言', 'fable', '请写一篇关于{topic}的寓言故事。要求：1. 故事简洁有力；2. 寓意深刻，富有哲理；3. 字数约800-1200字；4. 适合各年龄段读者，结尾点明寓意。', 3, 1),
 ('热点新闻', 'news', '请根据今日热点新闻，写一篇关于{topic}的新闻评论文章。要求：1. 观点鲜明，有深度分析；2. 引用相关背景资料；3. 字数约1000-1500字；4. 客观公正，有独到见解。', 4, 1),
 ('科技热点', 'tech', '请写一篇关于{topic}的科技热点文章。要求：1. 通俗易懂，深入浅出；2. 包含技术原理和应用场景；3. 字数约1500-2000字；4. 展望未来发展趋势。', 5, 1);
+
+
+ALTER TABLE article ADD COLUMN content_type VARCHAR(20) DEFAULT 'markdown';

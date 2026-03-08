@@ -36,6 +36,9 @@ public class Article {
 
     private Integer status;
 
+    @TableField("content_type")
+    private String contentType;
+
     @TableField("create_time")
     private LocalDateTime createTime;
 

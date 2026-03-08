@@ -69,7 +69,12 @@
           <div class="content-decoration">
             <div class="decoration-line"></div>
           </div>
-          <div class="article-content" v-html="formattedContent"></div>
+          <div 
+            ref="contentRef" 
+            class="article-content markdown-body" 
+            :class="{ 'is-html': article.contentType === 'html' }"
+            v-html="articleContent"
+          ></div>
         </article>
 
         <!-- Article Footer -->
@@ -106,28 +111,47 @@ import { HomeFilled, ArrowRight, ArrowLeft, Calendar, View, FolderOpened, Star, 
 import { getArticleById } from '@/api/article'
 import type { Article } from '@/api/article'
 import { marked } from 'marked'
-import DOMPurify from 'dompurify'
-
-// 配置 marked 选项
-marked.setOptions({
-  breaks: true,
-  gfm: true
-})
 
 const router = useRouter()
 const route = useRoute()
 
 const article = ref<Article | null>(null)
 const loading = ref(false)
+const contentRef = ref<HTMLElement | null>(null)
 
 const articleId = computed(() => Number(route.params.id))
 
-const formattedContent = computed(() => {
+const articleContent = computed(() => {
   if (!article.value?.content) return ''
+  const content = article.value.content
+  const contentType = article.value.contentType || 'markdown'
   
-  // 使用 marked 解析 Markdown，然后用 DOMPurify 防止 XSS
-  const rawHtml = marked.parse(article.value.content) as string
-  return DOMPurify.sanitize(rawHtml)
+  if (contentType === 'html') {
+    return content
+  }
+  
+  // Markdown 内容使用 marked 渲染
+  try {
+    const htmlContent = marked.parse(content, {
+      breaks: true,
+      gfm: true
+    }) as string
+    
+    return htmlContent
+  } catch (error) {
+    console.error('Failed to render markdown:', error)
+    // 如果渲染失败，尝试简单替换
+    return content
+      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      .replace(/\*\*(.+?)\*\*/gim, '<strong>$1</strong>')
+      .replace(/(?<!\*)\*([^*]+?)\*(?!\*)/gim, '<em>$1</em>')
+      .replace(/!\[(.*?)\]\((.*?)\)/gim, '<img alt="$1" src="$2" />')
+      .replace(/\[(.*?)\]\((.*?)\)/gim, '<a href="$2">$1</a>')
+      .replace(/\n\n/gim, '</p><p>')
+      .replace(/\n/gim, '<br>')
+  }
 })
 
 const goBack = () => {
@@ -340,13 +364,14 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
-.article-content :deep(p) {
+/* HTML 内容样式 */
+.article-content.is-html :deep(p) {
   margin-bottom: 20px;
   text-indent: 2em;
   text-align: justify;
 }
 
-.article-content :deep(h2) {
+.article-content.is-html :deep(h2) {
   font-size: 24px;
   font-weight: 700;
   margin: 40px 0 20px;
@@ -355,32 +380,23 @@ onMounted(() => {
   border-left: 4px solid #667eea;
 }
 
-.article-content :deep(h3) {
+.article-content.is-html :deep(h3) {
   font-size: 20px;
   font-weight: 600;
   margin: 32px 0 16px;
   color: var(--text-primary);
 }
 
-.article-content :deep(.content-image) {
-  margin: 32px 0;
-  text-align: center;
-}
-
-.article-content :deep(.content-image img) {
+.article-content.is-html :deep(img) {
   max-width: 100%;
   height: auto;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
-  transition: all var(--transition-normal);
+  margin: 24px 0;
+  display: block;
 }
 
-.article-content :deep(.content-image img:hover) {
-  transform: scale(1.02);
-  box-shadow: var(--shadow-lg);
-}
-
-.article-content :deep(blockquote) {
+.article-content.is-html :deep(blockquote) {
   margin: 24px 0;
   padding: 20px 24px;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
@@ -390,101 +406,264 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-.article-content :deep(ul),
-.article-content :deep(ol) {
-  margin: 16px 0;
+.article-content.is-html :deep(ul),
+.article-content.is-html :deep(ol) {
   padding-left: 2em;
+  margin: 16px 0;
 }
 
-.article-content :deep(li) {
-  margin: 8px 0;
-  line-height: 1.8;
+.article-content.is-html :deep(li) {
+  margin-bottom: 8px;
 }
 
-.article-content :deep(ul li) {
-  list-style-type: disc;
-}
-
-.article-content :deep(ol li) {
-  list-style-type: decimal;
-}
-
-.article-content :deep(code) {
-  padding: 2px 8px;
-  background: rgba(102, 126, 234, 0.1);
-  border-radius: 4px;
-  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
-  font-size: 0.9em;
-  color: #667eea;
-}
-
-.article-content :deep(pre) {
-  margin: 24px 0;
-  padding: 20px;
-  background: #1a1a2e;
-  border-radius: var(--radius-md);
-  overflow-x: auto;
-}
-
-.article-content :deep(pre code) {
-  padding: 0;
-  background: transparent;
-  color: #eee;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.article-content :deep(strong) {
-  font-weight: 700;
+/* Markdown Body 样式 - 用于 marked 库渲染的内容 */
+.article-content.markdown-body {
+  font-size: 17px;
+  line-height: 2;
   color: var(--text-primary);
 }
 
-.article-content :deep(em) {
+.article-content.markdown-body :deep(p) {
+  margin-bottom: 20px;
+  text-indent: 2em;
+  text-align: justify;
+}
+
+.article-content.markdown-body :deep(h1) {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 40px 0 24px;
+  color: var(--text-primary);
+  padding-left: 16px;
+  border-left: 4px solid #667eea;
+}
+
+.article-content.markdown-body :deep(h2) {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 36px 0 20px;
+  color: var(--text-primary);
+  padding-left: 16px;
+  border-left: 4px solid #667eea;
+}
+
+.article-content.markdown-body :deep(h3) {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 28px 0 16px;
+  color: var(--text-primary);
+}
+
+.article-content.markdown-body :deep(h4) {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  color: var(--text-primary);
+}
+
+.article-content.markdown-body :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  margin: 24px auto;
+  display: block;
+}
+
+.article-content.markdown-body :deep(blockquote) {
+  margin: 24px 0;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+  border-left: 4px solid #667eea;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.article-content.markdown-body :deep(ul),
+.article-content.markdown-body :deep(ol) {
+  padding-left: 2em;
+  margin: 16px 0;
+}
+
+.article-content.markdown-body :deep(li) {
+  margin-bottom: 8px;
+  line-height: 1.8;
+}
+
+.article-content.markdown-body :deep(code:not(.hljs)) {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.article-content.markdown-body :deep(pre) {
+  margin: 20px 0;
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  background: #282c34;
+  overflow-x: auto;
+}
+
+.article-content.markdown-body :deep(pre code) {
+  color: #abb2bf;
+  font-size: 14px;
+  line-height: 1.6;
+  background: transparent;
+  padding: 0;
+}
+
+.article-content.markdown-body :deep(table) {
+  width: 100%;
+  margin: 20px 0;
+  border-collapse: collapse;
+}
+
+.article-content.markdown-body :deep(th),
+.article-content.markdown-body :deep(td) {
+  border: 1px solid var(--bg-secondary);
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.article-content.markdown-body :deep(th) {
+  background: var(--bg-secondary);
+  font-weight: 600;
+}
+
+.article-content.markdown-body :deep(hr) {
+  border: none;
+  height: 2px;
+  background: var(--primary-gradient);
+  margin: 32px 0;
+}
+
+.article-content.markdown-body :deep(strong) {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.article-content.markdown-body :deep(em) {
   font-style: italic;
 }
 
-.article-content :deep(a) {
+.article-content.markdown-body :deep(a) {
   color: #667eea;
   text-decoration: none;
   border-bottom: 1px dashed #667eea;
   transition: all var(--transition-fast);
 }
 
-.article-content :deep(a:hover) {
+.article-content.markdown-body :deep(a:hover) {
   color: #764ba2;
-  border-bottom-style: solid;
+  border-bottom-color: #764ba2;
 }
 
-.article-content :deep(hr) {
-  margin: 32px 0;
-  border: none;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #667eea, transparent);
-}
-
-.article-content :deep(table) {
-  width: 100%;
-  margin: 24px 0;
-  border-collapse: collapse;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-}
-
-.article-content :deep(th),
-.article-content :deep(td) {
-  padding: 12px 16px;
-  text-align: left;
-  border: 1px solid var(--bg-secondary);
-}
-
-.article-content :deep(th) {
-  background: rgba(102, 126, 234, 0.1);
-  font-weight: 600;
+/* Vditor Markdown 样式覆盖 */
+.article-content.vditor-reset {
+  font-size: 17px;
+  line-height: 2;
   color: var(--text-primary);
 }
 
-.article-content :deep(tr:nth-child(even)) {
-  background: rgba(0, 0, 0, 0.02);
+.article-content.vditor-reset :deep(p) {
+  margin-bottom: 20px;
+  text-indent: 2em;
+  text-align: justify;
+}
+
+.article-content.vditor-reset :deep(h1),
+.article-content.vditor-reset :deep(h2) {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 40px 0 20px;
+  color: var(--text-primary);
+  padding-left: 16px;
+  border-left: 4px solid #667eea;
+  border-bottom: none;
+}
+
+.article-content.vditor-reset :deep(h3) {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 32px 0 16px;
+  color: var(--text-primary);
+  border-bottom: none;
+}
+
+.article-content.vditor-reset :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  margin: 24px auto;
+  display: block;
+}
+
+.article-content.vditor-reset :deep(blockquote) {
+  margin: 24px 0;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+  border-left: 4px solid #667eea;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.article-content.vditor-reset :deep(ul),
+.article-content.vditor-reset :deep(ol) {
+  padding-left: 2em;
+  margin: 16px 0;
+}
+
+.article-content.vditor-reset :deep(li) {
+  margin-bottom: 8px;
+}
+
+.article-content.vditor-reset :deep(code:not(.hljs)) {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.article-content.vditor-reset :deep(pre) {
+  margin: 20px 0;
+  border-radius: var(--radius-lg);
+  background: #282c34;
+}
+
+.article-content.vditor-reset :deep(pre code) {
+  color: #abb2bf;
+}
+
+.article-content.vditor-reset :deep(table) {
+  width: 100%;
+  margin: 20px 0;
+  border-collapse: collapse;
+}
+
+.article-content.vditor-reset :deep(th),
+.article-content.vditor-reset :deep(td) {
+  border: 1px solid var(--bg-secondary);
+  padding: 12px 16px;
+  text-align: left;
+}
+
+.article-content.vditor-reset :deep(th) {
+  background: var(--bg-secondary);
+  font-weight: 600;
+}
+
+.article-content.vditor-reset :deep(hr) {
+  border: none;
+  height: 2px;
+  background: var(--primary-gradient);
+  margin: 32px 0;
 }
 
 /* Article Footer */

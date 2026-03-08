@@ -44,6 +44,7 @@ export interface Article {
   publishDate: string
   viewCount: number
   status: number
+  contentType: string
   categoryName: string
   categoryCode: string
 }
@@ -90,6 +91,12 @@ export const getCurrentUser = () => {
 
 export const getCategories = () => {
   return api.get<ApiResponse<Category[]>>('/categories').then(res => res.data)
+}
+
+export const getCategoriesPage = (page = 1, size = 10) => {
+  return api.get<ApiResponse<PageResult<Category>>>('/categories/page', {
+    params: { page, size }
+  }).then(res => res.data)
 }
 
 export const getArticles = (params: { page?: number; size?: number; categoryCode?: string }) => {

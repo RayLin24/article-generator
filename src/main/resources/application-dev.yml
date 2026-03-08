@@ -1,22 +1,12 @@
-# 开发/测试环境配置
-# 使用方式: spring.profiles.active=dev
-# 
-# 重要提示: 
-# 请复制此文件并根据实际情况修改以下配置项:
-# - 数据库连接信息 (url, username, password)
-# - Zhipu AI API Key
-# - JWT密钥
-# - 文件上传路径
+# 本地开发环境配置
+# 使用方式: spring.profiles.active=local
 
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    # 请修改为实际的数据库地址
-    url: jdbc:mysql://YOUR_DB_HOST:3306/YOUR_DB_NAME?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    # 请修改为实际的数据库用户名
-    username: YOUR_DB_USERNAME
-    # 请修改为实际的数据库密码
-    password: YOUR_DB_PASSWORD
+    url: jdbc:mysql://localhost:3306/article_generator?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
@@ -25,21 +15,14 @@ spring:
       max-lifetime: 1800000
       connection-timeout: 30000
 
-  ai:
-    zhipu:
-      # 请替换为你的智谱AI API Key
-      # 获取地址: https://open.bigmodel.cn/
-      api-key: YOUR_ZHIPU_API_KEY
-
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
 
 # JWT配置
-# 重要: 请修改为一个足够长且复杂的密钥字符串
 jwt:
-  secret: YOUR_JWT_SECRET_KEY_PLEASE_CHANGE_THIS_TO_A_LONG_RANDOM_STRING
+  secret: article-generator-jwt-secret-key-very-long-string-for-security-2024-local
   expiration: 86400000
 
 # 定时任务配置
@@ -47,8 +30,13 @@ schedule:
   cron: "0 0 6 * * ?"
   enabled: true
 
+# 智谱AI配置
+zhipu:
+  api-key: you key
+  api-url: https://open.bigmodel.cn/api/paas/v4/chat/completions
+  model: glm-4-flash
+
 # 文件上传配置
 file:
   upload:
-    # 请修改为实际的文件上传路径
-    path: /var/uploads/article-generator/
+    path: ./uploads/

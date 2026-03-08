@@ -5,3 +5,8 @@ declare module '*.vue' {
   const component: DefineComponent<{}, {}, any>
   export default component
 }
+
+declare module '@wangeditor/editor-for-vue' {
+  export const Editor: any
+  export const Toolbar: any
+}

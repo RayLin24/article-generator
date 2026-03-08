@@ -1,6 +1,9 @@
 package com.example.article.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.example.article.dto.PageResult;
 import com.example.article.entity.Category;
 import com.example.article.mapper.CategoryMapper;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,17 @@ public class CategoryService {
                         .eq(Category::getStatus, 1)
                         .orderByAsc(Category::getSortOrder)
         );
+    }
+
+    public PageResult<Category> getEnabledPage(int page, int size) {
+        Page<Category> pageParam = new Page<>(page, size);
+        IPage<Category> result = categoryMapper.selectPage(
+                pageParam,
+                new LambdaQueryWrapper<Category>()
+                        .eq(Category::getStatus, 1)
+                        .orderByAsc(Category::getSortOrder)
+        );
+        return PageResult.of(result.getRecords(), result.getTotal(), result.getSize(), result.getCurrent());
     }
 
     public Category getByCode(String code) {

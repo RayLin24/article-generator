@@ -16,4 +16,6 @@ public class ArticleUpdateRequest {
     private String coverImage;
 
     private Integer status;
+
+    private String contentType;
 }

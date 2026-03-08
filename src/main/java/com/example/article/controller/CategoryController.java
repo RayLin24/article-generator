@@ -1,6 +1,7 @@
 package com.example.article.controller;
 
 import com.example.article.dto.ApiResponse;
+import com.example.article.dto.PageResult;
 import com.example.article.entity.Category;
 import com.example.article.service.CategoryService;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,13 @@ public class CategoryController {
     @GetMapping
     public ApiResponse<List<Category>> list() {
         return ApiResponse.success(categoryService.listEnabled());
+    }
+
+    @GetMapping("/page")
+    public ApiResponse<PageResult<Category>> page(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return ApiResponse.success(categoryService.getEnabledPage(page, size));
     }
 
     @GetMapping("/{code}")

@@ -34,8 +34,16 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column prop="contentType" label="格式" width="90">
           <template #default="{ row }">
+            <el-tag :type="row.contentType === 'html' ? 'warning' : ''" size="small">
+              {{ row.contentType === 'html' ? '富文本' : 'Markdown' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="250" fixed="right">
+          <template #default="{ row }">
+            <el-button type="info" size="small" @click="showPreviewDialog(row)">预览</el-button>
             <el-button type="primary" size="small" @click="showEditDialog(row)">编辑</el-button>
             <el-popconfirm title="确定删除?" @confirm="handleDelete(row.id)">
               <template #reference>
@@ -57,11 +65,13 @@
       </div>
     </el-card>
 
+    <!-- 新增/编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
       :title="isEdit ? '编辑文章' : '新增文章'"
-      width="900px"
+      width="1000px"
       destroy-on-close
+      :close-on-click-modal="false"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="栏目" prop="categoryId">
@@ -105,19 +115,26 @@
           </div>
         </el-form-item>
         
+        <el-form-item label="编辑器">
+          <el-radio-group v-model="form.contentType" @change="handleEditorTypeChange">
+            <el-radio value="markdown">Markdown</el-radio>
+            <el-radio value="html">富文本</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        
         <el-form-item label="内容" prop="content">
           <div class="content-editor">
-            <div class="content-toolbar">
-              <el-button size="small" @click="insertImageToContent" :loading="insertingImage">
-                <el-icon><Picture /></el-icon>
-                插入图片
-              </el-button>
-            </div>
-            <el-input
+            <MarkdownEditor
+              v-if="form.contentType === 'markdown'"
+              ref="markdownEditorRef"
               v-model="form.content"
-              type="textarea"
-              :rows="15"
-              placeholder="请输入文章内容（支持Markdown格式，可插入图片）"
+              placeholder="请输入文章内容，支持 Markdown 语法"
+            />
+            <RichTextEditor
+              v-else
+              ref="richTextEditorRef"
+              v-model="form.content"
+              placeholder="请输入文章内容"
             />
           </div>
         </el-form-item>
@@ -133,7 +150,38 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button @click="handlePreview">预览</el-button>
         <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 预览对话框 -->
+    <el-dialog
+      v-model="previewVisible"
+      title="文章预览"
+      width="900px"
+      destroy-on-close
+      @opened="renderPreviewContent"
+    >
+      <div class="preview-container" v-if="previewArticle">
+        <div class="preview-header">
+          <span class="preview-category">{{ previewArticle.categoryName }}</span>
+          <h2 class="preview-title">{{ previewArticle.title }}</h2>
+          <div class="preview-meta">
+            <span><el-icon><Calendar /></el-icon> {{ previewArticle.publishDate }}</span>
+            <span><el-icon><View /></el-icon> {{ previewArticle.viewCount }} 阅读</span>
+          </div>
+        </div>
+        <el-image
+          v-if="previewArticle.coverImage"
+          :src="previewArticle.coverImage"
+          fit="cover"
+          class="preview-cover"
+        />
+        <div ref="previewContentRef" class="preview-content vditor-reset" v-html="previewContent"></div>
+      </div>
+      <template #footer>
+        <el-button @click="previewVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>
@@ -142,10 +190,13 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Picture, Refresh } from '@element-plus/icons-vue'
+import { Picture, Refresh, Plus, Calendar, View } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useCategoryStore } from '@/stores/category'
 import { getAdminArticles, createArticle, updateArticle, deleteArticle, getRandomImage, type Article } from '@/api/article'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import RichTextEditor from '@/components/RichTextEditor.vue'
+import { marked } from 'marked'
 
 const categoryStore = useCategoryStore()
 const categories = computed(() => categoryStore.categories)
@@ -161,8 +212,9 @@ const isEdit = ref(false)
 const editId = ref<number | null>(null)
 const submitting = ref(false)
 const refreshingCover = ref(false)
-const insertingImage = ref(false)
 const formRef = ref<FormInstance>()
+const markdownEditorRef = ref<InstanceType<typeof MarkdownEditor> | null>(null)
+const richTextEditorRef = ref<InstanceType<typeof RichTextEditor> | null>(null)
 
 const form = reactive({
   categoryId: null as number | null,
@@ -170,13 +222,54 @@ const form = reactive({
   content: '',
   summary: '',
   coverImage: '',
-  status: 1
+  status: 1,
+  contentType: 'markdown'
 })
 
 const rules: FormRules = {
   categoryId: [{ required: true, message: '请选择栏目', trigger: 'change' }],
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
   content: [{ required: true, message: '请输入内容', trigger: 'blur' }]
+}
+
+// 预览相关
+const previewVisible = ref(false)
+const previewArticle = ref<Article | null>(null)
+const previewContentRef = ref<HTMLElement | null>(null)
+
+const previewContent = ref('')
+
+const renderPreviewContent = () => {
+  if (!previewArticle.value) return
+  
+  const content = previewArticle.value.content || ''
+  
+  if (previewArticle.value.contentType === 'html') {
+    previewContent.value = content
+    return
+  }
+  
+  // Markdown 内容使用 marked 渲染
+  try {
+    // 配置 marked
+    marked.setOptions({
+      breaks: true,
+      gfm: true
+    })
+    previewContent.value = marked.parse(content) as string
+  } catch (error) {
+    console.error('Failed to render markdown:', error)
+    // 降级处理
+    previewContent.value = content
+      .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<div class="content-image"><img src="$2" alt="$1" /></div>')
+      .split('\n')
+      .map(p => {
+        if (p.trim().startsWith('<div class="content-image">')) return p
+        if (p.trim() === '') return ''
+        return `<p>${p}</p>`
+      })
+      .join('')
+  }
 }
 
 const loadArticles = async () => {
@@ -201,6 +294,7 @@ const resetForm = () => {
   form.summary = ''
   form.coverImage = ''
   form.status = 1
+  form.contentType = 'markdown'
   editId.value = null
   isEdit.value = false
 }
@@ -219,7 +313,12 @@ const showEditDialog = (article: Article) => {
   form.summary = article.summary || ''
   form.coverImage = article.coverImage || ''
   form.status = article.status
+  form.contentType = article.contentType || 'markdown'
   dialogVisible.value = true
+}
+
+const handleEditorTypeChange = () => {
+  form.content = ''
 }
 
 const refreshCoverImage = async () => {
@@ -237,20 +336,32 @@ const refreshCoverImage = async () => {
   }
 }
 
-const insertImageToContent = async () => {
-  insertingImage.value = true
-  try {
-    const res = await getRandomImage(800, 400)
-    if (res.code === 200 && res.data) {
-      const imageMarkdown = `\n\n![配图](${res.data.url})\n\n`
-      form.content += imageMarkdown
-      ElMessage.success('图片已插入')
-    }
-  } catch (error: any) {
-    ElMessage.error(error.message || '获取图片失败')
-  } finally {
-    insertingImage.value = false
+const handlePreview = async () => {
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return
+  
+  previewArticle.value = {
+    id: 0,
+    categoryId: form.categoryId || 0,
+    title: form.title,
+    content: form.content,
+    summary: form.summary || '',
+    coverImage: form.coverImage,
+    publishDate: new Date().toLocaleDateString(),
+    viewCount: 0,
+    status: form.status,
+    contentType: form.contentType,
+    categoryName: categories.value.find(c => c.id === form.categoryId)?.name || '',
+    categoryCode: ''
   }
+  previewContent.value = form.contentType === 'html' ? form.content : ''
+  previewVisible.value = true
+}
+
+const showPreviewDialog = (article: Article) => {
+  previewArticle.value = { ...article }
+  previewContent.value = article.contentType === 'html' ? article.content : ''
+  previewVisible.value = true
 }
 
 const handleSubmit = async () => {
@@ -266,7 +377,8 @@ const handleSubmit = async () => {
         content: form.content,
         summary: form.summary || undefined,
         coverImage: form.coverImage || undefined,
-        status: form.status
+        status: form.status,
+        contentType: form.contentType
       })
       if (res.code === 200) {
         ElMessage.success('更新成功')
@@ -282,7 +394,8 @@ const handleSubmit = async () => {
         content: form.content,
         summary: form.summary || undefined,
         coverImage: form.coverImage || undefined,
-        status: form.status
+        status: form.status,
+        contentType: form.contentType
       })
       if (res.code === 200) {
         ElMessage.success('创建成功')
@@ -369,7 +482,236 @@ onMounted(() => {
   width: 100%;
 }
 
-.content-toolbar {
-  margin-bottom: 10px;
+/* 预览样式 */
+.preview-container {
+  padding: 20px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.preview-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.preview-category {
+  display: inline-block;
+  padding: 6px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 13px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+.preview-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #303133;
+  margin: 0 0 16px;
+}
+
+.preview-meta {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  color: #909399;
+  font-size: 14px;
+}
+
+.preview-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.preview-cover {
+  width: 100%;
+  height: 300px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  object-fit: cover;
+}
+
+.preview-content {
+  font-size: 16px;
+  line-height: 1.8;
+  color: #303133;
+}
+
+.preview-content.vditor-reset :deep(p) {
+  margin-bottom: 16px;
+  text-indent: 2em;
+  text-align: justify;
+}
+
+.preview-content.vditor-reset :deep(h1),
+.preview-content.vditor-reset :deep(h2) {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 24px 0 16px;
+  padding-left: 12px;
+  border-left: 4px solid #667eea;
+  border-bottom: none;
+}
+
+.preview-content.vditor-reset :deep(h3) {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 20px 0 12px;
+  border-bottom: none;
+}
+
+.preview-content.vditor-reset :deep(h4) {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+
+.preview-content.vditor-reset :deep(img) {
+  max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  margin: 16px auto;
+  display: block;
+}
+
+.preview-content.vditor-reset :deep(ul),
+.preview-content.vditor-reset :deep(ol) {
+  padding-left: 24px;
+  margin-bottom: 16px;
+}
+
+.preview-content.vditor-reset :deep(li) {
+  margin-bottom: 8px;
+}
+
+.preview-content.vditor-reset :deep(blockquote) {
+  margin: 16px 0;
+  padding: 16px 20px;
+  background: #f5f7fa;
+  border-left: 4px solid #667eea;
+  border-radius: 0 8px 8px 0;
+}
+
+.preview-content.vditor-reset :deep(code:not(.hljs)) {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 14px;
+}
+
+.preview-content.vditor-reset :deep(pre) {
+  background: #282c34;
+  color: #abb2bf;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.preview-content.vditor-reset :deep(pre code) {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.preview-content.vditor-reset :deep(table) {
+  width: 100%;
+  margin: 16px 0;
+  border-collapse: collapse;
+}
+
+.preview-content.vditor-reset :deep(th),
+.preview-content.vditor-reset :deep(td) {
+  border: 1px solid #ebeef5;
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.preview-content.vditor-reset :deep(th) {
+  background: #f5f7fa;
+  font-weight: 600;
+}
+
+.preview-content.vditor-reset :deep(hr) {
+  border: none;
+  height: 2px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  margin: 24px 0;
+}
+
+.preview-content :deep(p) {
+  margin-bottom: 16px;
+  text-indent: 2em;
+  text-align: justify;
+}
+
+.preview-content :deep(h2) {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 24px 0 16px;
+  padding-left: 12px;
+  border-left: 4px solid #667eea;
+}
+
+.preview-content :deep(h3) {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 20px 0 12px;
+}
+
+.preview-content :deep(.content-image) {
+  margin: 24px 0;
+  text-align: center;
+}
+
+.preview-content :deep(.content-image img) {
+  max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.preview-content :deep(ul),
+.preview-content :deep(ol) {
+  padding-left: 24px;
+  margin-bottom: 16px;
+}
+
+.preview-content :deep(li) {
+  margin-bottom: 8px;
+}
+
+.preview-content :deep(blockquote) {
+  margin: 16px 0;
+  padding: 16px 20px;
+  background: #f5f7fa;
+  border-left: 4px solid #667eea;
+  border-radius: 0 8px 8px 0;
+}
+
+.preview-content :deep(code) {
+  background: #f5f7fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 14px;
+}
+
+.preview-content :deep(pre) {
+  background: #282c34;
+  color: #abb2bf;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+.preview-content :deep(pre code) {
+  background: transparent;
+  padding: 0;
+  color: inherit;
 }
 </style>

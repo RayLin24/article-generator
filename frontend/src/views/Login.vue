@@ -234,7 +234,7 @@ const rules: FormRules = {
 }
 
 // 确认密码校验
-const validateConfirmPassword = (rule: any, value: any, callback: any) => {
+const validateConfirmPassword = (_rule: any, value: any, callback: any) => {
   if (value === '') {
     callback(new Error('请再次输入密码'))
   } else if (value !== registerForm.password) {
@@ -268,13 +268,6 @@ const switchToRegister = () => {
 // 切换到登录页面
 const switchToLogin = () => {
   isLogin.value = true
-}
-
-// 清空登录表单
-const resetLoginForm = () => {
-  loginForm.username = ''
-  loginForm.password = ''
-  loginFormRef.value?.clearValidate()
 }
 
 // 清空注册表单

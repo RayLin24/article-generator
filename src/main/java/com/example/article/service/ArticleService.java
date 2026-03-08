@@ -79,6 +79,7 @@ public class ArticleService {
             article.setPublishDate(LocalDate.now());
             article.setViewCount(0);
             article.setStatus(1);
+            article.setContentType("markdown");
 
             articleMapper.insert(article);
 
@@ -100,8 +101,28 @@ public class ArticleService {
         if (content == null || content.isEmpty()) {
             return "";
         }
-        String cleaned = content.replaceAll("<[^>]+>", "").replaceAll("\\s+", " ").trim();
-        return cleaned.length() > 200 ? cleaned.substring(0, 200) + "..." : cleaned;
+        // 移除 HTML 标签
+        String cleaned = content.replaceAll("<[^>]+>", "");
+        // 移除 Markdown 图片语法 ![alt](url)
+        cleaned = cleaned.replaceAll("!\\[[^\\]]*\\]\\([^)]+\\)", "");
+        // 移除 Markdown 链接语法 [text](url)，保留文字
+        cleaned = cleaned.replaceAll("\\[([^\\]]+)\\]\\([^)]+\\)", "$1");
+        // 移除 Markdown 标题符号
+        cleaned = cleaned.replaceAll("#{1,6}\\s*", "");
+        // 移除 Markdown 粗体和斜体
+        cleaned = cleaned.replaceAll("[*_]{1,3}([^*_]+)[*_]{1,3}", "$1");
+        // 移除 Markdown 代码块和行内代码
+        cleaned = cleaned.replaceAll("```[\\s\\S]*?```", "");
+        cleaned = cleaned.replaceAll("`([^`]+)`", "$1");
+        // 移除 Markdown 引用符号
+        cleaned = cleaned.replaceAll("^>\\s*", "");
+        // 移除 Markdown 列表符号
+        cleaned = cleaned.replaceAll("^[*+-]\\s+", "");
+        cleaned = cleaned.replaceAll("^\\d+\\.\\s+", "");
+        // 移除多余空白字符
+        cleaned = cleaned.replaceAll("\\s+", " ").trim();
+        // 截取前 150 个字符，确保不超过数据库字段限制
+        return cleaned.length() > 150 ? cleaned.substring(0, 150) + "..." : cleaned;
     }
 
     private String[] getTopicsForCategory(String code) {
@@ -125,6 +146,7 @@ public class ArticleService {
         article.setPublishDate(LocalDate.now());
         article.setViewCount(0);
         article.setStatus(request.getStatus() != null ? request.getStatus() : 1);
+        article.setContentType(request.getContentType() != null ? request.getContentType() : "markdown");
 
         articleMapper.insert(article);
         return article;
@@ -151,6 +173,9 @@ public class ArticleService {
         }
         if (request.getStatus() != null) {
             article.setStatus(request.getStatus());
+        }
+        if (request.getContentType() != null) {
+            article.setContentType(request.getContentType());
         }
 
         articleMapper.updateById(article);
